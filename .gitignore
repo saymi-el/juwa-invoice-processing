@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+input/
+output/
+public/results.json
+coverage/
+*.log
+Vault JUWA/.obsidian/
+Vault JUWA/Sources/
+.DS_Store
