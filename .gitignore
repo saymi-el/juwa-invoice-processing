@@ -6,6 +6,7 @@ dist/
 input/
 output/
 public/results.json
+public/demo.json
 coverage/
 *.log
 Vault JUWA/.obsidian/

@@ -1,0 +1,68 @@
+[
+  {
+    "fileName": "facture_1_meca_precision.pdf",
+    "supplier": "Atelier Méca-Précision",
+    "invoiceNumber": "FAC-2026-0342",
+    "date": "2026-06-12",
+    "items": [
+      { "description": "Vérin hydraulique double effet VDE-80/45", "quantity": 4, "unitPrice": 486, "lineTotal": 1944 },
+      { "description": "Kit joints d'étanchéité réf. KJ-2214", "quantity": 12, "unitPrice": 38.5, "lineTotal": 462 },
+      { "description": "Usinage flasque acier S355 sur plan n° 6612-B", "quantity": 6, "unitPrice": 152, "lineTotal": 912 },
+      { "description": "Contrôle dimensionnel tridimensionnel", "quantity": 1, "unitPrice": 290, "lineTotal": 290 },
+      { "description": "Forfait emballage et transport", "quantity": 1, "unitPrice": 145, "lineTotal": 145 }
+    ],
+    "totalHt": 3753,
+    "vatRate": 20,
+    "vatAmount": 750.6,
+    "totalTtc": 4503.6
+  },
+  {
+    "fileName": "facture_2_studio_botanica.pdf",
+    "supplier": "Studio Botanica",
+    "invoiceNumber": "2026-087",
+    "date": "2026-06-03",
+    "items": [
+      { "description": "Tonte et débroussaillage (1 200 m²)", "quantity": 1, "unitPrice": 320, "lineTotal": 320 },
+      { "description": "Taille de haies et évacuation", "quantity": 4, "unitPrice": 95, "lineTotal": 285 },
+      { "description": "Plantation massifs (fourniture incluse)", "quantity": 1, "unitPrice": 140, "lineTotal": 140 },
+      { "description": "Traitement phytosanitaire doux", "quantity": 3, "unitPrice": 60, "lineTotal": 180 }
+    ],
+    "totalHt": 1040,
+    "vatRate": 20,
+    "vatAmount": 208,
+    "totalTtc": 1248
+  },
+  {
+    "fileName": "facture_3_scan_2009.pdf",
+    "supplier": "SARL ROULEMENTS & TRANSMISSIONS",
+    "invoiceNumber": "09-1187",
+    "date": "2009-09-17",
+    "items": [
+      { "description": "Roulement à billes SKF 6208-2RS", "quantity": 8, "unitPrice": 14.6, "lineTotal": 116.8 },
+      { "description": "Courroie trapézoïdale SPZ 1250", "quantity": 6, "unitPrice": 9.85, "lineTotal": 59.1 },
+      { "description": "Graisse lithium EP2 - cartouche 400g", "quantity": 24, "unitPrice": 4.2, "lineTotal": 100.8 },
+      { "description": "Joint spi 45x62x8 nitrile", "quantity": 15, "unitPrice": 2.95, "lineTotal": 44.25 },
+      { "description": "Port et emballage", "quantity": 1, "unitPrice": 18, "lineTotal": 18 }
+    ],
+    "totalHt": 338.95,
+    "vatRate": 19.6,
+    "vatAmount": 66.43,
+    "totalTtc": 405.38
+  },
+  {
+    "fileName": "facture_4_hydrofluid_encodage.pdf",
+    "supplier": "HYDROFLUID COMPOSANTS",
+    "invoiceNumber": "HF-2026-1043",
+    "date": "2026-05-28",
+    "items": [
+      { "description": "HF-EL220 - Électrovanne 4/3 centre fermé 220 V", "quantity": 3, "unitPrice": 187.4, "lineTotal": 562.2 },
+      { "description": "HF-FP60 - Filtre pression 60 µm avec indicateur", "quantity": 5, "unitPrice": 42.9, "lineTotal": 214.5 },
+      { "description": "HF-FLEX12 - Flexible hydraulique 1/2 pouce long. 1,5 m", "quantity": 10, "unitPrice": 26.35, "lineTotal": 263.5 },
+      { "description": "HF-MANO100 - Manomètre glycérine 0-250 bar Ø100", "quantity": 4, "unitPrice": 31.8, "lineTotal": 127.2 }
+    ],
+    "totalHt": 1167.4,
+    "vatRate": 20,
+    "vatAmount": 233.48,
+    "totalTtc": 1400.88
+  }
+]
