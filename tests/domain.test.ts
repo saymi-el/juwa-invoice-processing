@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Invoice, OcrPage } from '../src/shared/schema';
 import { lineAmount, parseAmount, roundMoney, sumMoney } from '../src/domain/money';
+import { evidenceAppearsOnPage } from '../src/domain/provenance';
 import { validateInvoice } from '../src/domain/validate';
 
 function sample(): { invoice: Invoice; pages: OcrPage[] } {
@@ -30,6 +31,37 @@ describe('amounts', () => {
 });
 
 describe('provenance and business validation', () => {
+  it('accepts presentation-only bold differences while keeping the original evidence intact', () => {
+    const { invoice, pages } = sample();
+    invoice.supplier = { value: 'ATELIER MÉCA-PRÉCISION', page: 1,
+      evidence: '**ATELIER MÉCA-PRÉCISION**\n\nUsinage de précision' };
+    invoice.totalTtc = { value: 1400.88, page: 1, evidence: 'TOTAL T.T.C. | **1 400,88 €**' };
+    pages[0]!.markdown += '\n# ATELIER MÉCA-PRÉCISION\n\nUsinage de précision\n**TOTAL T.T.C.** | **1 400,88 €**';
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.supplier.value).toBe('ATELIER MÉCA-PRÉCISION');
+    expect(result.invoice.totalTtc.value).toBe(1400.88);
+    expect(result.invoice.supplier.evidence).toBe(invoice.supplier.evidence);
+    expect(result.invoice.totalTtc.evidence).toBe(invoice.totalTtc.evidence);
+    expect(result.warnings.some(({ code }) => code === 'UNSUPPORTED_EVIDENCE')).toBe(false);
+  });
+  it('still requires exact evidence letters, case and accents after Markdown normalization', () => {
+    expect(evidenceAppearsOnPage('FACTURE', '**BACTURE**')).toBe(false);
+    expect(evidenceAppearsOnPage('FACTURE', '**facture**')).toBe(false);
+    expect(evidenceAppearsOnPage('PRÉCISION', '**PRECISION**')).toBe(false);
+  });
+  it('rejects invented evidence amounts even when their Markdown presentation is accepted', () => {
+    const { invoice, pages } = sample();
+    invoice.totalTtc = { value: 99, page: 1, evidence: '**TTC 99,00**' };
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.totalTtc.value).toBeNull();
+    expect(result.warnings.some(({ code, field }) => code === 'UNSUPPORTED_EVIDENCE' && field === 'totalTtc')).toBe(true);
+  });
+  it('does not remove multiplication stars or unmatched Markdown delimiters', () => {
+    expect(evidenceAppearsOnPage('2 * 3 = 6', '2 3 = 6')).toBe(false);
+    expect(evidenceAppearsOnPage('2 * 3 = 6', '2 * 3 = 6')).toBe(true);
+    expect(evidenceAppearsOnPage('2**3**4', '234')).toBe(false);
+    expect(evidenceAppearsOnPage('**FACTURE', 'FACTURE**')).toBe(false);
+  });
   it('accepts a consistent invoice without modifying its source', () => {
     const { invoice, pages } = sample();
     const before = JSON.stringify(invoice);

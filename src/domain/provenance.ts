@@ -3,6 +3,15 @@ import { parseAmount } from './money';
 const withoutAccents = (text: string): string => text.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
 const words = (text: string): string => withoutAccents(text).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 
+export function evidenceAppearsOnPage(page: string, evidence: string): boolean {
+  // Ignore only paired **bold** wrappers. Keep letters, case, accents, numbers and bare stars.
+  const normalizePresentation = (text: string): string => text
+    .replace(/(?<![\p{L}\p{N}*])\*\*([^\s*](?:[^*]*[^\s*])?)\*\*(?![\p{L}\p{N}*])/gu, '$1')
+    .normalize('NFKC').replace(/\s+/g, ' ').trim();
+  const excerpt = normalizePresentation(evidence);
+  return excerpt.length > 0 && normalizePresentation(page).includes(excerpt);
+}
+
 export function evidenceHasText(evidence: string, value: string): boolean {
   const normalized = words(value);
   return normalized.length > 0 && ` ${words(evidence)} `.includes(` ${normalized} `);

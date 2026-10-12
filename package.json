@@ -14,7 +14,8 @@
     "test": "vitest run",
     "pipeline": "tsx src/pipeline/cli.ts",
     "demo": "tsx scripts/create-demo.ts",
-    "verify:results": "tsx scripts/verify-results.ts"
+    "verify:results": "tsx scripts/verify-results.ts",
+    "verify:synthetic": "tsx scripts/verify-synthetic-results.ts"
   },
   "dependencies": {
     "decimal.js": "10.6.0",

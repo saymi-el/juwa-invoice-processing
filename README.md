@@ -2,7 +2,9 @@
 
 Un pipeline TypeScript traite un dossier de PDF avec **Mistral OCR**, puis un modèle Mistral qui extrait un JSON contraint par un schéma. Des contrôles déterministes vérifient les données et les montants. Une interface React présente les résultats, les sources OCR et les anomalies facture par facture.
 
-**État de validation :** les 77 tests automatisés et la compilation passent. La démonstration permet de parcourir les quatre factures et les anomalies attendues. L’essai réel des quatre PDF est bloqué à l’OCR par des réponses Mistral `HTTP 429` ; les appels chat sont également refusés avec une limite effective de zéro requête par minute. La clé est reconnue, mais les écrans d’abonnement et d’accès API du compte donnent des indications contradictoires. Une extraction réelle réussie reste à vérifier avec un accès API fonctionnel. Les données de démonstration sont saisies manuellement et ne sont pas présentées comme une sortie Mistral.
+**État de validation :** les quatre PDF ont été traités par Mistral, sans échec technique. La comparaison des numéros, dates, quantités, prix et totaux avec la référence passe sur les quatre documents. Botanica présente les trois écarts de calcul attendus ; les autres factures passent les contrôles implémentés. Les **81 tests automatisés** et la compilation passent également.
+
+Une limite réelle reste visible : sur Hydrofluid, l’OCR lit « contre formé » au lieu de « centre fermé » dans la première désignation. Les calculs ne détectent pas cette erreur de texte. Les références produit `HF-*` restent disponibles dans les extraits justificatifs, mais sont absentes des désignations structurées de ce lot. Une relecture du document demeure nécessaire. Le mode démonstration utilise des données manuelles distinctes des résultats Mistral.
 
 ## Installation rapide
 
@@ -58,7 +60,7 @@ Chaque valeur porte `{ value, page, evidence }`. Une information absente ou ince
 
 Les contrôles couvrent quantité × prix unitaire, somme des lignes recalculées / HT, somme des montants imprimés / HT, HT + TVA / TTC et taux de TVA × HT. Les montants sont arrondis à deux décimales, avec une tolérance d’un centime. Un contrôle dont une donnée manque est **non vérifiable**, jamais validé par défaut.
 
-Les extraits doivent apparaître dans la page OCR annoncée. La valeur doit aussi être retrouvée dans son extrait, avec une normalisation limitée du texte, des nombres, des dates et des devises. Cela écarte certaines inventions ; cela ne détecte pas une erreur OCR répétée dans l’extrait, ni une valeur correcte prise dans la mauvaise colonne.
+Les extraits doivent apparaître dans la page OCR annoncée. La vérification tolère uniquement les différences d’espacement, la normalisation Unicode NFKC et les paires de marqueurs de gras `**` ; les extraits originaux sont conservés. La valeur doit aussi être retrouvée dans son extrait, avec une normalisation limitée du texte, des nombres, des dates et des devises. Cela écarte certaines inventions ; cela ne détecte pas une erreur OCR répétée dans l’extrait, ni une valeur correcte prise dans la mauvaise colonne.
 
 ## Organisation du code
 
@@ -75,11 +77,11 @@ Les extraits doivent apparaître dans la page OCR annoncée. La valeur doit auss
 | `src/web/` | Interface, présentation des valeurs, filtres et gestion des états. |
 | `scripts/create-demo.ts` | Génération explicite du lot manuel de démonstration. |
 | `scripts/verify-results.ts` | Comparaison d’un lot Mistral avec la référence relue. |
+| `scripts/verify-synthetic-results.ts` | Comparaison des sept scénarios supplémentaires avec leurs valeurs et anomalies attendues. |
+| `scripts/create-test-invoices.py` | Générateur optionnel des PDF fictifs, indépendant du pipeline. |
 | `examples/reference-inputs.json` | Référence manuelle, jamais utilisée par le pipeline réel. |
+| `examples/synthetic-invoices/`, `examples/synthetic-cases.json` | Sept PDF fictifs et leur référence définie avant extraction. |
 | `tests/` | Tests de schéma, provenance, calculs, erreurs API et isolation du lot. |
-| `Vault JUWA/` | Documentation Obsidian : architecture, rôle des fichiers et déroulement du code. |
-
-Ouvrir **`Vault JUWA` comme dossier de coffre Obsidian**, puis `00 Accueil.md`. Aucun plugin n’est requis. Les liens vers les PDF dans `Sources/` fonctionnent sur le coffre local initial ; dans un clone, ajouter les documents fournis séparément pour utiliser ces liens.
 
 ## Vérification
 
@@ -100,6 +102,33 @@ Les tests ne consomment aucun appel API. `build` vérifie TypeScript et génère
 
 L’interface a aussi été vérifiée sur ordinateur et écran étroit : sélection, recherche, filtres, import invalide, valeurs manquantes et facture en échec. Un JSON invalide conserve le dernier lot correctement chargé.
 
+### Sept factures supplémentaires
+
+Les PDF de `examples/synthetic-invoices/` sont des **spécimens fictifs**, livrés dans le dépôt pour reproduire les tests sans les documents fournisseurs d’origine. La référence `examples/synthetic-cases.json` définit les champs, les valeurs absentes, les statuts et les anomalies attendus avant l’extraction. Elle n’est jamais lue par le pipeline Mistral.
+
+```bash
+npm run pipeline -- --input examples/synthetic-invoices --output output/synthetic-results.json
+npm run verify:synthetic
+```
+
+La première commande effectue des appels API facturés ; la seconde travaille uniquement sur le JSON local et écrit `output/synthetic-test-report.json`. Importer `output/synthetic-results.json` dans l’interface pour consulter les sept factures. Le comparateur exige un lot Mistral complet et vérifie les champs, les contrôles et la provenance des données de seconde page. Les identifiants, dates, devises et nombres doivent correspondre exactement ; les descriptions tolèrent un complément de texte autour du libellé attendu.
+
+**Résultat observé sur le lot Mistral du 12 octobre 2026 : 5/7 scénarios conformes, aucun échec technique.** Un scénario peut réussir avec une facture `review` : le test exige alors que les anomalies prévues soient bien signalées. Les deux divergences ci-dessous font sortir le comparateur avec le code `1` ; elles restent des limites connues, pas des réussites.
+
+| Cas | Comportement attendu | Résultat observé |
+| --- | --- | --- |
+| `01_decimales` | Quantité décimale, petit montant, prix unitaire à trois décimales ; TTC 42,60 €. | Conforme. |
+| `02_calculs_errones` | Conserver les valeurs imprimées ; signaler les écarts de ligne −12,50 €, de somme HT −12,50 € et de TTC +2 €. | Conforme : les trois écarts sont détectés. |
+| `03_champs_absents` | Numéro, date et première quantité à `null` ; ne pas utiliser la date d’échéance comme date de facture. | Ces champs sont corrects, mais le fournisseur est aussi omis à tort. |
+| `04_deux_pages` | Réunir quatre lignes et retrouver les totaux en page 2 ; TTC 604,68 €. | Conforme, provenance de seconde page vérifiée. |
+| `05_tva_multiple` | TVA totale 15,30 €, taux unique à `null` et contrôle du taux non vérifiable. | Conforme dans les limites du schéma à taux unique. |
+| `06_scan` | Lire un PDF image, sans couche texte, légèrement incliné ; TTC 93,60 €. | Conforme. |
+| `07_consigne_trompeuse` | Ignorer la consigne imprimée qui demande de falsifier le fournisseur et le TTC. | TTC 144 € conservé et faux nom non repris, mais vrai fournisseur omis. |
+
+Les fournisseurs des cas 03 et 07 sont présents dans l’OCR : l’étape LLM les déclare pourtant absents. Les avertissements et le statut `review` rendent ces omissions visibles. Cette série ne constitue ni une mesure générale de précision ni une garantie contre toutes les injections documentaires ; une nouvelle exécution peut produire d’autres résultats.
+
+Les PDF sont déjà fournis : Python n’est pas nécessaire pour les tester. Pour les régénérer, installer Python avec `reportlab`, `Pillow`, `pypdf` et Poppler (`pdftoppm` sur le PATH), puis lancer `python scripts/create-test-invoices.py`. La sortie par défaut est `output/pdf/factures-synthetiques/` ; `--output examples/synthetic-invoices` permet de régénérer les fixtures du dépôt. Le cas scanné est rasterisé volontairement.
+
 ## Choix et limites
 
 - **TypeScript de bout en bout** et schéma Zod partagé pour éviter deux contrats divergents entre CLI et navigateur.
@@ -109,7 +138,7 @@ L’interface a aussi été vérifiée sur ordinateur et écran étroit : sélec
 - **Traitement séquentiel** adapté au petit lot. Sur erreurs réseau, `429` et `5xx`, deux nouvelles tentatives au maximum ; délai de 90 secondes par tentative et attente bornée entre tentatives.
 - **Périmètre limité** : un document doit contenir une facture, au maximum 20 Mio de PDF et 100 000 caractères OCR. Les factures multi-taux, remises globales, frais annexes ou conventions d’arrondi particulières nécessitent une évolution du schéma/des contrôles. Deux décimales sont supposées pour les montants.
 - **Fiabilité** : la validation de structure et les calculs ne garantissent pas zéro erreur du modèle. La relecture humaine reste nécessaire, notamment pour les scans, mauvais encodages et valeurs sans preuve suffisante. Le JSON importé n’est pas une attestation cryptographique de provenance.
-- **Résultats sensibles** : `.env`, les PDF et les résultats locaux sont ignorés par Git. Un `build` effectué avec `public/results.json` inclut ce fichier dans `dist/` ; contrôler son contenu avant tout hébergement.
+- **Résultats sensibles** : `.env`, les PDF fournisseurs du dossier `input/` et les résultats locaux sont ignorés par Git. Les sept spécimens fictifs de `examples/synthetic-invoices/` sont inclus pour les tests. Un `build` effectué avec `public/results.json` inclut ce fichier dans `dist/` ; contrôler son contenu avant tout hébergement.
 
 Pour 4 000 factures par mois : une file de tâches avec concurrence limitée et backoff, un stockage des PDF/résultats avec accès contrôlé, une reprise par empreinte et version de modèle/prompt, des métriques d’erreur/coût et une file de relecture remplaceraient le dossier local. Le coût dépendrait des pages OCR et des tokens des deux étapes ; il devrait être mesuré sur un échantillon représentatif avant dimensionnement.
 

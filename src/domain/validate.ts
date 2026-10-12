@@ -1,10 +1,9 @@
 import Decimal from 'decimal.js';
 import type { Check, Invoice, NumberField, OcrPage, TextField, Warning } from '../shared/schema';
 import { lineAmount, roundMoney, sumMoney } from './money';
-import { evidenceHasCurrency, evidenceHasDate, evidenceHasNumber, evidenceHasText, isCalendarDate } from './provenance';
+import { evidenceAppearsOnPage, evidenceHasCurrency, evidenceHasDate, evidenceHasNumber, evidenceHasText, isCalendarDate } from './provenance';
 
 type Field = NumberField | TextField;
-const normalize = (value: string): string => value.normalize('NFKC').replace(/\s+/g, ' ').trim();
 
 function fieldsOf(invoice: Invoice): Array<{ path: string; field: Field; required: boolean }> {
   const result: Array<{ path: string; field: Field; required: boolean }> = [
@@ -48,7 +47,7 @@ export function validateInvoice(input: Invoice, pages: OcrPage[]): {
       continue;
     }
     const page = pages.find((candidate) => candidate.page === field.page);
-    if (!page || !field.evidence || !normalize(page.markdown).includes(normalize(field.evidence))) {
+    if (!page || !field.evidence || !evidenceAppearsOnPage(page.markdown, field.evidence)) {
       warn('UNSUPPORTED_EVIDENCE', path, 'Valeur écartée : extrait justificatif absent de la page OCR indiquée.', field.page);
       field.value = null;
     } else if (typeof field.value === 'number' && !evidenceHasNumber(field.evidence, field.value)) {
