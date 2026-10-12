@@ -77,7 +77,7 @@ export function createMistralClient(config: MistralConfig, options: ClientOption
         const message = response.status === 401 || response.status === 403
           ? 'Accès Mistral refusé. Vérifiez la clé et les droits du compte.'
           : response.status === 429
-            ? 'Limite de débit Mistral atteinte après trois tentatives. Réessayez plus tard.'
+            ? 'Mistral refuse les appels après trois tentatives (HTTP 429). Vérifiez le quota et l’accès API du compte, puis réessayez.'
             : `La requête Mistral a échoué (HTTP ${response.status}).`;
         throw new PipelineError(`HTTP_${response.status}`, message);
       }

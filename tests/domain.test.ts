@@ -49,6 +49,69 @@ describe('provenance and business validation', () => {
     expect(result.invoice.totalTtc.value).toBeNull();
     expect(result.checks.find((check) => check.code === 'HT_TAX_TTC')?.status).toBe('skipped');
   });
+  it.each(['3.753,60 €', '3,753.60 EUR', '3\u202f753,60 €'])('keeps a correctly sourced amount formatted as %s', (evidence) => {
+    const { invoice, pages } = sample();
+    invoice.totalHt = { value: 3753.6, page: 1, evidence };
+    pages[0]!.markdown += ` ${evidence}`;
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.totalHt.value).toBe(3753.6);
+    expect(result.warnings.some((warning) => warning.code === 'UNSUPPORTED_NUMBER')).toBe(false);
+  });
+  it('rejects invented text even when its evidence exists', () => {
+    const { invoice, pages } = sample();
+    invoice.supplier.value = 'Fournisseur inventé';
+    invoice.invoiceNumber.value = 'A-999';
+    invoice.items[0]!.description.value = 'Produit inventé';
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.supplier.value).toBeNull();
+    expect(result.invoice.invoiceNumber.value).toBeNull();
+    expect(result.invoice.items[0]!.description.value).toBeNull();
+    expect(result.warnings.filter((warning) => warning.code === 'UNSUPPORTED_TEXT')).toHaveLength(3);
+  });
+  it('normalizes accents, case, punctuation and whitespace when checking text values', () => {
+    const { invoice, pages } = sample();
+    invoice.supplier = { value: 'Méca-Précision', page: 1, evidence: 'MECA   PRECISION' };
+    invoice.items[0]!.description.value = 'piece';
+    invoice.invoiceNumber.value = 'a 42';
+    pages[0]!.markdown += ' MECA   PRECISION';
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.supplier.value).toBe('Méca-Précision');
+    expect(result.warnings).toEqual([]);
+  });
+  it('rejects a valid calendar date that is not supported by its evidence', () => {
+    const { invoice, pages } = sample();
+    invoice.date.value = '2025-01-01';
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.date.value).toBeNull();
+    expect(result.warnings.some((warning) => warning.code === 'UNSUPPORTED_DATE')).toBe(true);
+  });
+  it.each([
+    ['2026-06-12', '2026-06-12'], ['12/06/2026', '2026-06-12'], ['12/06/09', '2009-06-12'],
+    ['12/06/69', '2069-06-12'], ['12/06/70', '1970-06-12'],
+    ['12 juin 2026', '2026-06-12'], ['1er février 2009', '2009-02-01'], ['12 févr. 2009', '2009-02-12'],
+  ])('matches supported date format %s', (evidence, value) => {
+    const { invoice, pages } = sample();
+    invoice.date = { value, page: 1, evidence };
+    pages[0]!.markdown += ` ${evidence}`;
+    expect(validateInvoice(invoice, pages).invoice.date.value).toBe(value);
+  });
+  it('marks an unrecognized date format as uncertain instead of assuming the model is right', () => {
+    const { invoice, pages } = sample();
+    invoice.date.evidence = 'June 12th, 2026';
+    pages[0]!.markdown += ' June 12th, 2026';
+    const result = validateInvoice(invoice, pages);
+    expect(result.invoice.date.value).toBeNull();
+    expect(result.warnings.find((warning) => warning.code === 'UNSUPPORTED_DATE')?.message).toContain('format non reconnu');
+  });
+  it.each([
+    ['EUR', '€', true], ['EUR', 'EUR', true], ['USD', '$', false], ['USD', 'USD', true],
+    ['USD', 'US$', true], ['GBP', '£', true], ['GBP', 'GBP', true], ['USD', 'EUR', false],
+  ])('requires unambiguous support for currency %s from %s', (value, evidence, accepted) => {
+    const { invoice, pages } = sample();
+    invoice.currency = { value, page: 1, evidence };
+    pages[0]!.markdown += ` ${evidence}`;
+    expect(validateInvoice(invoice, pages).invoice.currency.value).toBe(accepted ? value : null);
+  });
   it('never turns an unknown quantity into zero or a successful sum check', () => {
     const { invoice, pages } = sample();
     invoice.items[0]!.quantity.value = null;
@@ -89,6 +152,7 @@ describe('provenance and business validation', () => {
     pages[0]!.markdown += ' Ã©mission';
     const result = validateInvoice(invoice, pages);
     expect(result.invoice.date.value).toBeNull();
+    expect(result.warnings.some((warning) => warning.code === 'INVALID_DATE')).toBe(true);
     expect(result.warnings.some((warning) => warning.code === 'OCR_ENCODING')).toBe(true);
   });
   it('reports empty line extraction without claiming a valid zero total', () => {

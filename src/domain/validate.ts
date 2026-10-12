@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import type { Check, Invoice, NumberField, OcrPage, TextField, Warning } from '../shared/schema';
-import { lineAmount, parseAmount, roundMoney, sumMoney } from './money';
+import { lineAmount, roundMoney, sumMoney } from './money';
+import { evidenceHasCurrency, evidenceHasDate, evidenceHasNumber, evidenceHasText, isCalendarDate } from './provenance';
 
 type Field = NumberField | TextField;
 const normalize = (value: string): string => value.normalize('NFKC').replace(/\s+/g, ' ').trim();
@@ -22,11 +23,6 @@ function fieldsOf(invoice: Invoice): Array<{ path: string; field: Field; require
     }
   });
   return result;
-}
-
-function evidenceHasNumber(evidence: string, value: number): boolean {
-  const tokens = evidence.match(/[+-]?\d+(?:[ \u00a0\u202f]\d{3})*(?:[.,]\d+)?/g) ?? [];
-  return tokens.some((token) => parseAmount(token) === value);
 }
 
 /** Schema validity, OCR provenance and accounting checks are separate responsibilities. */
@@ -58,20 +54,30 @@ export function validateInvoice(input: Invoice, pages: OcrPage[]): {
     } else if (typeof field.value === 'number' && !evidenceHasNumber(field.evidence, field.value)) {
       warn('UNSUPPORTED_NUMBER', path, 'Valeur écartée : nombre introuvable dans son extrait justificatif.', field.page);
       field.value = null;
+    } else if (typeof field.value === 'string') {
+      if (path === 'date') {
+        if (!isCalendarDate(field.value)) {
+          warn('INVALID_DATE', path, 'Date invalide : une vérification du document est nécessaire.', field.page);
+          field.value = null;
+        } else if (!evidenceHasDate(field.evidence, field.value)) {
+          warn('UNSUPPORTED_DATE', path, 'Date écartée : différente de l’extrait ou format non reconnu (ISO, jour/mois/année ou mois français attendus).', field.page);
+          field.value = null;
+        }
+      } else if (path === 'currency') {
+        if (!/^[A-Z]{3}$/.test(field.value)) {
+          warn('INVALID_CURRENCY', path, 'Devise non reconnue au format ISO à trois lettres.', field.page);
+          field.value = null;
+        } else if (!evidenceHasCurrency(field.evidence, field.value)) {
+          warn('UNSUPPORTED_CURRENCY', path, 'Devise écartée : code ou symbole non étayé. Un dollar seul est ambigu.', field.page);
+          field.value = null;
+        }
+      } else if (!evidenceHasText(field.evidence, field.value)) {
+        warn('UNSUPPORTED_TEXT', path, 'Valeur écartée : texte introuvable dans son extrait après normalisation.', field.page);
+        field.value = null;
+      }
     }
   }
 
-  const date = invoice.date.value;
-  if (date !== null && (!/^\d{4}-\d{2}-\d{2}$/.test(date)
-      || Number.isNaN(Date.parse(`${date}T00:00:00Z`))
-      || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date)) {
-    invoice.date.value = null;
-    warn('INVALID_DATE', 'date', 'Date invalide : une vérification du document est nécessaire.', invoice.date.page);
-  }
-  if (invoice.currency.value !== null && !/^[A-Z]{3}$/.test(invoice.currency.value)) {
-    invoice.currency.value = null;
-    warn('INVALID_CURRENCY', 'currency', 'Devise non reconnue au format ISO à trois lettres.', invoice.currency.page);
-  }
   if (invoice.items.length === 0) warn('NO_ITEMS', 'items', 'Aucune ligne exploitable extraite.', null);
   for (const page of pages) {
     if (/(?:Ã.|Â.|â€|\uFFFD|■)/.test(page.markdown)) {
