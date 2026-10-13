@@ -11,8 +11,8 @@ Une limite réelle reste visible : sur Hydrofluid, l’OCR lit « contre formé 
 Prérequis : **Node.js 22.12 ou plus récent**, npm et Git. L’interface de démonstration ne nécessite aucune clé.
 
 ```bash
-git clone https://github.com/saymi-el/juwa-invoices.git
-cd juwa-invoices
+git clone https://github.com/saymi-el/juwa-invoice-processing.git
+cd juwa-invoice-processing
 npm ci
 npm run dev
 ```
